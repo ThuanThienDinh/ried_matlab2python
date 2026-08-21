@@ -2,7 +2,10 @@
 
 from typing import Union
 import numpy as np
-from .RL3D import RL3D
+try:
+    from .RL3D import RL3D
+except ImportError:
+    from RL3D import RL3D
 
 
 def RLdeconv(data: np.ndarray, kernel: np.ndarray, iteration: int, 

@@ -20,6 +20,8 @@ def entrocor(data, bin, offset, maxv, minv):
     entrom = entromap(data, bin, maxv, minv)
     ecum = XCcumulant(data, 1, offset)
     output = entrom * ecum
-    output /= np.max(output)
+    output_max = np.max(output)
+    if output_max > 0:
+        output /= output_max
 
     return(output)

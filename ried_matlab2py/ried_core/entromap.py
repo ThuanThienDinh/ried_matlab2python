@@ -57,43 +57,41 @@ def entromap(data, bin, maxv, minv):
     # Initialize output array (MATLAB: zeros(x*2, y*2))
     output = np.zeros((x * 2, y * 2), dtype=np.float64)
     
-    # Nested loops over spatial coordinates
-    # MATLAB: for i = 1:x-1, for j = 1:y-1
-    # Python: for i in range(x-1), for j in range(y-1) with index adjustment
-    for i in range(x - 1):
-        for j in range(y - 1):
-            # Inner loops for neighborhood (MATLAB: for m = 0:1, for n = 0:1)
-            for m in range(2):
-                for n in range(2):
-                    
-                    # Case 1: Self-entropy (m+n == 0)
-                    if m + n == 0:
-                        # MATLAB: p1 = squeeze(data(i,j,:))
-                        p1 = np.squeeze(data[i, j, :])
-                        # MATLAB: output(2*i-1, 2*j-1) = xEtr(p1,p1,bin,maxv,minv)
-                        # Convert MATLAB 1-based to Python 0-based indexing
-                        output[2 * i, 2 * j] = xEtr(p1, p1, bin, maxv, minv)
-                    
-                    # Case 2: Adjacent neighbor (m+n == 1)
-                    if m + n == 1:
-                        p1 = np.squeeze(data[i, j, :])
-                        # MATLAB: p2 = squeeze(data(i+m,j+n,:))
-                        p2 = np.squeeze(data[i + m, j + n, :])
-                        # MATLAB: output(2*i-1+m, 2*j-1+n) = xEtr(p1,p2,bin,maxv,minv)
-                        output[2 * i + m, 2 * j + n] = xEtr(p1, p2, bin, maxv, minv)
-                    
-                    # Case 3: Opposite corners (m+n == 2)
-                    if m + n == 2:
-                        p1 = np.squeeze(data[i, j, :])
-                        # MATLAB: p2 = squeeze(data(i+m,j,:))
-                        p2 = np.squeeze(data[i + m, j, :])
-                        # MATLAB: p3 = squeeze(data(i,j+n,:))
-                        p3 = np.squeeze(data[i, j + n, :])
-                        # MATLAB: p4 = squeeze(data(i+m,j+n,:))
-                        p4 = np.squeeze(data[i + m, j + n, :])
-                        # MATLAB: output(2*i+m-1, 2*j+n-1) = ((xEtr(p1,p4,...)+xEtr(p2,p3,...))/2)
-                        output[2 * i + m - 1, 2 * j + n - 1] = (
-                            (xEtr(p1, p4, bin, maxv, minv) + xEtr(p2, p3, bin, maxv, minv)) / 2
-                        )
+    flat = data.reshape(x * y, data.shape[2])
+    if maxv == minv:
+        probabilities = np.zeros((x * y, int(bin)), dtype=np.float64)
+        probabilities[:, 0] = 1.0
+    else:
+        indices = np.rint((flat - minv) / (maxv - minv) * int(bin)).astype(np.int64)
+        indices = np.clip(indices, 0, int(bin) - 1)
+        probabilities = np.zeros((x * y, int(bin)), dtype=np.float64)
+        rows = np.repeat(np.arange(x * y), data.shape[2])
+        np.add.at(probabilities, (rows, indices.ravel()), 1)
+        probabilities /= data.shape[2]
+
+    def cross_entropy(first, second):
+        first_term = np.zeros_like(first)
+        second_term = np.zeros_like(second)
+        first_mask = first > 0
+        second_mask = second > 0
+        first_term[first_mask] = second[first_mask] * np.log(first[first_mask])
+        second_term[second_mask] = first[second_mask] * np.log(second[second_mask])
+        return -0.5 * np.sum(first_term + second_term, axis=-1)
+
+    probabilities = probabilities.reshape(x, y, int(bin))
+    center = probabilities[:-1, :-1]
+    output[0:2 * (x - 1):2, 1:2 * (y - 1):2] = cross_entropy(
+        center, probabilities[:-1, 1:]
+    )
+    output[1:2 * (x - 1):2, 0:2 * (y - 1):2] = cross_entropy(
+        center, probabilities[1:, :-1]
+    )
+    output[0:2 * (x - 1):2, 0:2 * (y - 1):2] = cross_entropy(
+        center, center
+    )
+    output[1:2 * (x - 1):2, 1:2 * (y - 1):2] = (
+        cross_entropy(center, probabilities[1:, 1:])
+        + cross_entropy(probabilities[:-1, 1:], probabilities[1:, :-1])
+    ) / 2
     
     return output

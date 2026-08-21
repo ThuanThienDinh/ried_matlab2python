@@ -101,7 +101,7 @@ def deblur_coreRL(yk, data, otf, xk, vk, iter_idx, xp):
     xk = xp.maximum(yk * correction, 1e-5)
     
     vk_update = vk.copy()
-    vk = xp.maximum(xk - yk, 1e-5)
+    vk = xk - yk
 
     # Compute acceleration parameter
     if iter_idx == 1:
